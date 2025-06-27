@@ -4,9 +4,11 @@ from dataclasses import dataclass
 from typing import Any, List, Optional, Set, Union, Dict
 
 from httpx import AsyncClient
+
 from pydantic import BaseModel, ValidationError, Field, ConfigDict
 
 from pydantic_ai import Agent, ModelRetry, RunContext
+from async_lru import alru_cache
 
 BASE_URL = "https://pokeapi.co/api/v2"
 
@@ -16,6 +18,7 @@ def pretty_print(data: dict):
     print(json.dumps(data, indent=2, ensure_ascii=False))
 
 
+@alru_cache(maxsize=512)
 async def _fetch_url(client: AsyncClient, url: str) -> Optional[dict]:
     """Safely fetches a single URL, returning JSON or None on error."""
     try:
