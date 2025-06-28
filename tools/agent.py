@@ -9,8 +9,8 @@ from pydantic import BaseModel, ValidationError, Field, ConfigDict
 from pydantic_ai import Agent, ModelRetry, RunContext
 from tools.get_pokemon_profiles import _get_pokemon_profiles
 from tools.analyse_team_defense import (
-    analyze_defensive_synergy,
-    DefensiveSynergyAnalysis,
+    analyze_team_defense,
+    TeamDefenseSummary,
 )
 
 
@@ -86,40 +86,39 @@ async def get_pokemon_profiles_tool(
 
 
 @poke_agent.tool
-async def analyze_defensive_synergy_tool(
+async def analyze_team_defense_tool(
     ctx: RunContext[Deps],
     pokemon_names: List[str],
-) -> DefensiveSynergyAnalysis:
-    """Analyzes a Pokémon team's defensive strengths and weaknesses based on their types.
+) -> TeamDefenseSummary:
+    """Analyzes a Pokémon team's defensive synergy, focusing on a deep, actionable breakdown of type matchups.
 
-    This tool is essential for competitive team building and strategic planning. It takes a list
-    of Pokémon and evaluates how their types work together defensively. The analysis identifies
-    critical vulnerabilities (types that threaten most of the team), undefended types (types
-    the team has no resistance to), and provides a risk profile for each individual Pokémon.
-    It purely evaluates type matchups and does not consider stats, abilities, or moves.
+    This tool is essential for competitive team building and strategic planning. It evaluates how a team's
+    types interact defensively, moving beyond simple weakness counts to provide a nuanced, prioritized
+    analysis. It identifies the most severe threats (like 4x weaknesses), common vulnerabilities shared
+    across the team, and areas where the team lacks any defensive coverage. The analysis purely evaluates
+    type matchups and does not consider stats, abilities, or moves.
 
     Use this tool to answer questions like:
-    - "What are the biggest weaknesses of a team with Charizard, Venusaur, and Blastoise?"
-    - "How well does my team of Snorlax, Gengar, and Alakazam cover its defensive bases?"
-    - "Which Pokémon on my team is the most defensively vulnerable?"
+    - "What are the most dangerous threats to a team with Tyranitar, Metagross, and Gengar?"
+    - "My team of Dragonite, Gyarados, and Charizard shares a 4x weakness to Rock. How can I see that?"
+    - "Which types can my team not safely switch into? Are there any coverage gaps?"
 
     Args:
         pokemon_names (List[str]): A list of Pokémon names to be analyzed as a single team.
-                                   For best results, provide a full team of up to 6 Pokémon.
 
     Returns:
-        DefensiveSynergyAnalysis: A structured analysis object with detailed results.
-                                  The key fields include:
-                                  - 'critical_weaknesses': A list of types that half or more
-                                    of the team is weak to. These are the most urgent threats.
-                                  - 'undefended_types': Types that no one on the team resists.
-                                    These represent significant defensive gaps.
-                                  - 'weakness_severity': A breakdown of how many Pokémon are
-                                    weak to each specific attack type.
-                                  - 'pokemon_vulnerability': A profile for each Pokémon,
-                                    detailing its number of weaknesses and resistances.
+        TeamDefenseSummary: A structured analysis object with concise, actionable insights.
+                            The key fields include:
+                            - 'top_threats': A dictionary mapping the most dangerous attack types to the
+                              highest damage multiplier they inflict (e.g., {'rock': 4.0, 'electric': 2.0}).
+                            - 'shared_weaknesses': Maps attack types to the number of team members weak to it,
+                              highlighting systemic vulnerabilities. Only includes types that affect more than one member.
+                            - 'coverage_gaps': A list of types for which the team has NO resistances or immunities,
+                              revealing holes in the team's defensive wall.
+                            - 'pokemon_vulnerabilities': The detailed defensive profile for each individual
+                              Pokémon, serving as a reference for drill-down analysis.
     """
 
-    return await analyze_defensive_synergy(
+    return await analyze_team_defense(
         client=ctx.deps.client, pokemon_names=pokemon_names
     )

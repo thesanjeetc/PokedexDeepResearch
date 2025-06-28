@@ -3,7 +3,8 @@ from typing import Any, List, Dict, Optional, Set
 from httpx import AsyncClient
 from pydantic_ai import ModelRetry
 import json
-from tools.utils import pretty_print, _fetch_url, BASE_URL, TYPE_CHART
+from tools.utils import pretty_print, _fetch_url, BASE_URL
+from tools.type_chart import calculate_type_defenses
 
 
 def _clean_flavor_text(text: str) -> str:
@@ -134,38 +135,6 @@ def _process_encounters(
                 break
 
     return sorted(list(locations))
-
-
-def calculate_type_defenses(pokemon_types: list[str]) -> dict:
-    attack_types = set(TYPE_CHART.keys())
-    combined_multipliers = {t: 1.0 for t in attack_types}
-
-    for p_type in pokemon_types:
-        type_defenses = TYPE_CHART[p_type]["defense"]
-        for attack_type, multiplier in type_defenses.items():
-            combined_multipliers[attack_type] *= multiplier
-
-    defenses = {
-        "immune_to": [],
-        "resists_4x": [],
-        "resists_2x": [],
-        "weak_to_2x": [],
-        "weak_to_4x": [],
-    }
-
-    for attack_type, multiplier in combined_multipliers.items():
-        if multiplier == 0:
-            defenses["immune_to"].append(attack_type)
-        elif multiplier == 0.25:
-            defenses["resists_4x"].append(attack_type)
-        elif multiplier == 0.5:
-            defenses["resists_2x"].append(attack_type)
-        elif multiplier == 2.0:
-            defenses["weak_to_2x"].append(attack_type)
-        elif multiplier == 4.0:
-            defenses["weak_to_4x"].append(attack_type)
-
-    return defenses
 
 
 async def _get_pokemon_profile(
