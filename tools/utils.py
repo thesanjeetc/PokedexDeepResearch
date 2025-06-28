@@ -29,3 +29,8 @@ async def _fetch_url(client: AsyncClient, url: str) -> Optional[dict]:
         return response.json()
     except Exception:
         return None
+
+TYPE_CHART_PATH = "data/type_chart.json"
+
+with open(TYPE_CHART_PATH, "r", encoding="utf-8") as f:
+    TYPE_CHART = json.load(f)

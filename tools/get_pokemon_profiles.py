@@ -2,16 +2,15 @@ import asyncio
 from typing import Any, List, Dict, Optional, Set
 from httpx import AsyncClient
 from pydantic_ai import ModelRetry
-from tools.utils import pretty_print, _fetch_url, BASE_URL
+import json
+from tools.utils import pretty_print, _fetch_url, BASE_URL, TYPE_CHART
 
 
 def _clean_flavor_text(text: str) -> str:
-    """Removes newlines and other special characters from flavor text."""
     return text.replace("\n", " ").replace("\x0c", " ").strip()
 
 
 def _process_pokedex_entries(entries: List[Dict[str, Any]]) -> Dict[str, str]:
-    """Extracts the English flavor text for each game version, prioritizing recent games."""
     processed = {}
     seen_versions = set()
     for entry in reversed(entries):
@@ -27,7 +26,6 @@ def _process_pokedex_entries(entries: List[Dict[str, Any]]) -> Dict[str, str]:
 
 
 def _process_evolution_chain(chain_link: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """Recursively processes the raw evolution chain into a simple list of paths."""
     paths = []
     from_species = chain_link["species"]["name"]
 
@@ -66,86 +64,108 @@ def _process_evolution_chain(chain_link: Dict[str, Any]) -> List[Dict[str, Any]]
                 "condition": " and ".join(conditions),
             }
         )
-
         paths.extend(_process_evolution_chain(evolution))
-
     return paths
 
 
 def _process_moves(
-    moves_data: List[Dict[str, Any]], version_group_filter: Optional[str] = None
-) -> List[Dict[str, Any]]:
-    """Processes raw move data into a structured list, optionally filtered by version group."""
-    processed_moves = []
+    moves_data: List[Dict[str, Any]], version_group_filter: str
+) -> Dict[str, Any]:
+    final_moves = {
+        "level_up": {},
+        "machine": [],
+        "tutor": [],
+        "egg": [],
+    }
+
     for move_entry in moves_data:
-        filtered_vg_details = [
-            vgd
-            for vgd in move_entry["version_group_details"]
-            if not version_group_filter
-            or vgd["version_group"]["name"] == version_group_filter
-        ]
+        move_name = move_entry["move"]["name"].replace("-", " ").title()
 
-        if not filtered_vg_details:
-            continue
+        for vgd in move_entry["version_group_details"]:
+            if vgd["version_group"]["name"] == version_group_filter:
+                method = vgd["move_learn_method"]["name"]
+                level = vgd["level_learned_at"]
 
-        grouped_methods: Dict[tuple, Set[str]] = {}
-        for vgd in filtered_vg_details:
-            method = vgd["move_learn_method"]["name"]
-            level = vgd["level_learned_at"]
-            key = (method, level)
-            if key not in grouped_methods:
-                grouped_methods[key] = set()
-            grouped_methods[key].add(
-                vgd["version_group"]["name"].replace("-", " ").title()
-            )
+                if method == "level-up" and level > 0:
+                    level_key = str(level)
+                    if level_key not in final_moves["level_up"]:
+                        final_moves["level_up"][level_key] = []
+                    final_moves["level_up"][level_key].append(move_name)
 
-        learn_methods_list = []
-        for (method, level), versions in grouped_methods.items():
-            learn_methods_list.append(
-                {
-                    "method": method.replace("-", " "),
-                    "level": level if method == "level-up" else None,
-                    "games": sorted(list(versions)),
-                }
-            )
+                elif method == "machine":
+                    final_moves["machine"].append(move_name)
 
-        processed_moves.append(
-            {
-                "name": move_entry["move"]["name"].replace("-", " ").title(),
-                "learn_methods": learn_methods_list,
-            }
+                elif method == "tutor":
+                    final_moves["tutor"].append(move_name)
+
+                elif method == "egg":
+                    final_moves["egg"].append(move_name)
+
+    final_moves["level_up"] = dict(
+        sorted(final_moves["level_up"].items(), key=lambda item: int(item[0]))
+    )
+
+    for level in final_moves["level_up"]:
+        final_moves["level_up"][level] = sorted(
+            list(set(final_moves["level_up"][level]))
         )
 
-    return sorted(processed_moves, key=lambda x: x["name"])
+    final_moves["machine"] = sorted(list(set(final_moves["machine"])))
+    final_moves["tutor"] = sorted(list(set(final_moves["tutor"])))
+    final_moves["egg"] = sorted(list(set(final_moves["egg"])))
+
+    return {key: value for key, value in final_moves.items() if value}
 
 
 def _process_encounters(
-    encounter_data: List[Dict[str, Any]], game_version_filter: Optional[str] = None
-) -> List[Dict[str, Any]]:
-    """Processes raw encounter data, optionally filtered by game version."""
+    encounter_data: List[Dict[str, Any]], game_version_filter: str
+) -> List[str]:
     if not encounter_data:
         return []
 
-    locations = {}
+    locations = set()
+
     for encounter in encounter_data:
-        location_name = encounter["location_area"]["name"].replace("-", " ").title()
+        for version_detail in encounter["version_details"]:
+            if version_detail["version"]["name"] == game_version_filter:
+                location_name = encounter["location_area"]["name"]
+                cleaned_name = location_name.replace("-", " ").title()
+                locations.add(cleaned_name)
+                break
 
-        relevant_versions = {
-            vd["version"]["name"]
-            for vd in encounter["version_details"]
-            if not game_version_filter or vd["version"]["name"] == game_version_filter
-        }
+    return sorted(list(locations))
 
-        if relevant_versions:
-            if location_name not in locations:
-                locations[location_name] = set()
-            locations[location_name].update(relevant_versions)
 
-    processed_encounters = [
-        {"location": loc, "games": sorted([v.replace("-", " ").title() for v in vers])}
-        for loc, vers in locations.items()
-    ]
-    return sorted(processed_encounters, key=lambda x: x["location"])
+def calculate_type_defenses(pokemon_types: list[str]) -> dict:
+    attack_types = set(TYPE_CHART.keys())
+    combined_multipliers = {t: 1.0 for t in attack_types}
+
+    for p_type in pokemon_types:
+        type_defenses = TYPE_CHART[p_type]["defense"]
+        for attack_type, multiplier in type_defenses.items():
+            combined_multipliers[attack_type] *= multiplier
+
+    defenses = {
+        "immune_to": [],
+        "resists_4x": [],
+        "resists_2x": [],
+        "weak_to_2x": [],
+        "weak_to_4x": [],
+    }
+
+    for attack_type, multiplier in combined_multipliers.items():
+        if multiplier == 0:
+            defenses["immune_to"].append(attack_type)
+        elif multiplier == 0.25:
+            defenses["resists_4x"].append(attack_type)
+        elif multiplier == 0.5:
+            defenses["resists_2x"].append(attack_type)
+        elif multiplier == 2.0:
+            defenses["weak_to_2x"].append(attack_type)
+        elif multiplier == 4.0:
+            defenses["weak_to_4x"].append(attack_type)
+
+    return defenses
 
 
 async def _get_pokemon_profile(
@@ -154,7 +174,6 @@ async def _get_pokemon_profile(
     data_groups: Optional[List[str]] = None,
     game_version: Optional[str] = None,
 ) -> dict[str, Any]:
-    """Assembles and structures a Pokémon profile, then filters it by semantic groups."""
     pokemon_name = pokemon_name.lower()
     game_version = game_version.lower() if game_version else None
 
@@ -186,11 +205,11 @@ async def _get_pokemon_profile(
     identity_data = {
         "id": pokemon.get("id"),
         "name": pokemon.get("name").capitalize(),
-        "genus": next(
-            (g["genus"] for g in species["genera"] if g["language"]["name"] == "en"), ""
-        ),
+        "genus": [
+            g["genus"] for g in species["genera"] if g["language"]["name"] == "en"
+        ],
         "types": [t["type"]["name"] for t in pokemon["types"]],
-        "is_legendary": species["is_legendary"],
+        "is_legendary": species.get("is_legendary"),
         "is_mythical": species.get("is_mythical", False),
         "is_baby": species.get("is_baby", False),
     }
@@ -204,6 +223,9 @@ async def _get_pokemon_profile(
 
     battle_stats_data = {
         "base_stats": {s["stat"]["name"]: s["base_stat"] for s in pokemon["stats"]},
+        "type_defenses": calculate_type_defenses(
+            [t["type"]["name"] for t in pokemon["types"]]
+        ),
         "abilities": [
             a["ability"]["name"] + (" (hidden)" if a["is_hidden"] else "")
             for a in pokemon["abilities"]
@@ -247,8 +269,12 @@ async def _get_pokemon_profile(
         },
     }
 
+    pretty_print(final_structured_profile)
+
     if not data_groups:
-        return final_structured_profile
+        data_groups = [
+            "summary",
+        ]
 
     return {
         group: final_structured_profile[group]
@@ -263,7 +289,6 @@ async def _get_pokemon_profiles(
     data_groups: Optional[List[str]] = None,
     game_version: Optional[str] = None,
 ) -> dict[str, Any]:
-    """Retrieves comprehensive profiles for one or more Pokémon, organized into logical data groups."""
     tasks = {
         name: _get_pokemon_profile(client, name, data_groups, game_version)
         for name in pokemon_names
