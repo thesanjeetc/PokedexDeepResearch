@@ -5,8 +5,8 @@ from pathlib import Path
 from tqdm.asyncio import tqdm_asyncio
 from typing import Any, List, Dict, Optional
 from httpx import AsyncClient
-from tools.utils import _fetch_url
-from tools.type_chart import calculate_type_defenses, calculate_type_offenses
+from dataset.utils import _fetch_url
+from dataset.type_chart import calculate_type_defenses, calculate_type_offenses
 from collections import defaultdict
 
 
@@ -37,7 +37,6 @@ def _process_evolution_chain(chain_link: Dict[str, Any]) -> List[Dict[str, Any]]
         to_species = evolution["species"]["name"]
         details_list = evolution.get("evolution_details", [])
 
-        # Default if no evolution details
         if not details_list:
             paths.append(
                 {
@@ -285,7 +284,9 @@ async def get_all_pokemon(client: AsyncClient):
     return [entry["name"] for entry in data["results"]]
 
 
-async def fetch_pokemon_profiles(json_path="data/pokemon.json", max_concurrency=20):
+async def fetch_pokemon_profiles(
+    json_path="resources/pokemon.json", max_concurrency=20
+):
     if Path(json_path).exists():
         return
 
@@ -313,7 +314,7 @@ async def fetch_pokemon_profiles(json_path="data/pokemon.json", max_concurrency=
 
 
 def build_parquet_dataset(
-    json_path="data/pokemon.json", output_path="data/pokemon.parquet"
+    json_path="resources/pokemon.json", output_path="resources/pokemon.parquet"
 ):
     with open(json_path, "r") as f:
         data = json.load(f)

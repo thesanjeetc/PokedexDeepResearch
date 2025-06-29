@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 from httpx import AsyncClient
 from functools import lru_cache
-from tools.utils import _fetch_url, BASE_URL
+from dataset.utils import _fetch_url, BASE_URL
 
 
 async def fetch_type_list(client: AsyncClient) -> List[str]:
@@ -59,7 +59,7 @@ async def build_type_chart() -> Dict[str, Dict[str, Dict[str, float]]]:
         return chart
 
 
-TYPE_CHART_PATH = Path("data/type_chart.json")
+TYPE_CHART_PATH = Path("resources/type_chart.json")
 
 
 @lru_cache(maxsize=1)
