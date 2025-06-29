@@ -27,5 +27,5 @@ _cached_df = None
 def load_pokemon_dataset() -> pd.DataFrame:
     global _cached_df
     if _cached_df is None:
-        _cached_df = pd.read_parquet(_PARQUET_PATH).set_index("name")
+        _cached_df = pd.read_parquet(_PARQUET_PATH, dtype_backend="pyarrow")
     return _cached_df

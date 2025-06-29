@@ -64,8 +64,6 @@ TYPE_CHART_PATH = Path("resources/type_chart.json")
 
 @lru_cache(maxsize=1)
 def fetch_type_chart():
-    if not TYPE_CHART_PATH.exists():
-        asyncio.run(build_type_chart())
     with TYPE_CHART_PATH.open("r", encoding="utf-8") as f:
         return json.load(f)
 

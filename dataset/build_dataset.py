@@ -40,8 +40,8 @@ def _process_evolution_chain(chain_link: Dict[str, Any]) -> List[Dict[str, Any]]
         if not details_list:
             paths.append(
                 {
-                    "from_pokemon": from_species.capitalize(),
-                    "to_pokemon": to_species.capitalize(),
+                    "from_pokemon": from_species.lower(),
+                    "to_pokemon": to_species.lower(),
                     "condition": "unknown",
                 }
             )
@@ -75,8 +75,8 @@ def _process_evolution_chain(chain_link: Dict[str, Any]) -> List[Dict[str, Any]]
 
         paths.append(
             {
-                "from_pokemon": from_species.capitalize(),
-                "to_pokemon": to_species.capitalize(),
+                "from_pokemon": from_species.lower(),
+                "to_pokemon": to_species.lower(),
                 "condition": " and ".join(conditions),
             }
         )
@@ -208,7 +208,7 @@ async def _get_pokemon_profile(
         "summary": {
             "identity": {
                 "id": pokemon["id"],
-                "name": pokemon["name"].capitalize(),
+                "name": pokemon["name"].lower(),
                 "genus": [
                     g["genus"]
                     for g in species["genera"]
@@ -348,9 +348,5 @@ def build_parquet_dataset(
 
     df = pd.DataFrame(rows)
     df.set_index("name", inplace=True)
-    df.to_parquet(output_path)
+    df.to_parquet(output_path, engine="pyarrow", index=True)
     print(f"Saved dataset to {output_path}")
-
-
-if __name__ == "__main__":
-    build_parquet_dataset()

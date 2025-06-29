@@ -8,16 +8,14 @@ from pydantic import BaseModel, ValidationError, Field, ConfigDict
 
 from pydantic_ai import Agent, ModelRetry, RunContext
 from tools.get_pokemon_profiles import _get_pokemon_profiles
-from tools.analyse_team import (
-    analyze_team,
+from tools.analyse_pokemon_team import (
+    analyse_team,
     TeamAnalysisSummary,
 )
 
 
 @dataclass
-class Deps:
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-    client: AsyncClient
+class Deps: ...
 
 
 poke_agent = Agent(
@@ -68,13 +66,11 @@ async def get_pokemon_profiles_tool(
                                       This will filter the 'moves' and 'ecology' data groups to
                                       only include data relevant to that game.
     """
-    return await _get_pokemon_profiles(
-        ctx.deps.client, pokemon_names, data_groups, game_version
-    )
+    return await _get_pokemon_profiles(pokemon_names, data_groups, game_version)
 
 
 @poke_agent.tool
-async def analyze_team_tool(
+async def analyse_team_tool(
     ctx: RunContext[Deps],
     pokemon_names: List[str],
 ) -> TeamAnalysisSummary:
@@ -108,4 +104,4 @@ async def analyze_team_tool(
                              critical vulnerabilities and confirming well-covered matchups.
     """
 
-    return await analyze_team(client=ctx.deps.client, pokemon_names=pokemon_names)
+    return await analyse_team(pokemon_names=pokemon_names)

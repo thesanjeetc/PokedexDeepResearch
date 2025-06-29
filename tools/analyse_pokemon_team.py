@@ -6,7 +6,7 @@ from httpx import AsyncClient
 from pydantic import BaseModel, Field
 from tools.utils import pretty_print
 from tools.get_pokemon_profiles import _get_pokemon_profiles
-from tools.type_chart import fetch_type_chart
+from dataset.type_chart import fetch_type_chart
 
 
 class PokemonVulnerabilityProfile(BaseModel):
@@ -58,11 +58,9 @@ class TeamAnalysisSummary(BaseModel):
     pokemon_profiles: Dict[str, PokemonTeamProfile]
 
 
-async def analyze_team(
-    client: AsyncClient, pokemon_names: List[str]
-) -> TeamAnalysisSummary:
+async def analyse_team(pokemon_names: List[str]) -> TeamAnalysisSummary:
     team_profiles = await _get_pokemon_profiles(
-        client, pokemon_names, ["summary", "battle_profile"]
+        pokemon_names, ["summary", "battle_profile"]
     )
 
     pokemon_profiles = {}
