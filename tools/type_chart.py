@@ -101,3 +101,27 @@ def calculate_type_defenses(pokemon_types: list[str]) -> dict:
             defenses["weak_to_4x"].append(attack_type)
 
     return defenses
+
+
+def calculate_type_offenses(pokemon_types: list[str]) -> dict:
+    type_chart = fetch_type_chart()
+    super_effective = set()
+    not_very_effective = set()
+    no_effect = set()
+
+    for p_type in pokemon_types:
+        offense_profile = type_chart[p_type]["offense"]
+
+        for defending_type, multiplier in offense_profile.items():
+            if multiplier == 2.0:
+                super_effective.add(defending_type)
+            elif multiplier == 0.5:
+                not_very_effective.add(defending_type)
+            elif multiplier == 0.0:
+                no_effect.add(defending_type)
+
+    return {
+        "super_effective_against": sorted(list(super_effective)),
+        "not_very_effective_against": sorted(list(not_very_effective)),
+        "no_effect_against": sorted(list(no_effect)),
+    }

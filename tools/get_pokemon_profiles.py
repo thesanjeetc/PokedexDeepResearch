@@ -1,10 +1,8 @@
 import asyncio
-from typing import Any, List, Dict, Optional, Set
+from typing import Any, List, Dict, Optional
 from httpx import AsyncClient
-from pydantic_ai import ModelRetry
-import json
-from tools.utils import pretty_print, _fetch_url, BASE_URL
-from tools.type_chart import calculate_type_defenses
+from tools.utils import _fetch_url, pretty_print
+from tools.type_chart import calculate_type_defenses, calculate_type_offenses
 
 
 def _clean_flavor_text(text: str) -> str:
@@ -30,7 +28,7 @@ def _process_evolution_chain(chain_link: Dict[str, Any]) -> List[Dict[str, Any]]
     paths = []
     from_species = chain_link["species"]["name"]
 
-    if not chain_link.get("evolves_to"):
+    if not chain_link["evolves_to"]:
         return []
 
     for evolution in chain_link["evolves_to"]:
@@ -40,11 +38,11 @@ def _process_evolution_chain(chain_link: Dict[str, Any]) -> List[Dict[str, Any]]
 
         conditions = []
         if trigger == "level up":
-            if details.get("min_level"):
+            if "min_level" in details:
                 conditions.append(f"at level {details['min_level']}")
-            if details.get("min_happiness"):
+            if "min_happiness" in details:
                 conditions.append("with high friendship")
-            if details.get("time_of_day"):
+            if "time_of_day" in details and details["time_of_day"]:
                 conditions.append(f"during the {details['time_of_day']}")
             if not conditions:
                 conditions.append("by leveling up")
@@ -52,8 +50,9 @@ def _process_evolution_chain(chain_link: Dict[str, Any]) -> List[Dict[str, Any]]
             conditions.append(f"using a '{details['item']['name']}'")
         elif trigger == "trade":
             condition = "by trading"
-            if details.get("held_item"):
-                condition += f" while holding a '{details['held_item']['name']}'"
+            held_item = details.get("held_item")
+            if held_item:
+                condition += f" while holding a '{held_item['name']}'"
             conditions.append(condition)
         else:
             conditions.append(f"by a special method: '{trigger}'")
@@ -72,12 +71,7 @@ def _process_evolution_chain(chain_link: Dict[str, Any]) -> List[Dict[str, Any]]
 def _process_moves(
     moves_data: List[Dict[str, Any]], version_group_filter: str
 ) -> Dict[str, Any]:
-    final_moves = {
-        "level_up": {},
-        "machine": [],
-        "tutor": [],
-        "egg": [],
-    }
+    final_moves = {"level_up": {}, "machine": [], "tutor": [], "egg": []}
 
     for move_entry in moves_data:
         move_name = move_entry["move"]["name"].replace("-", " ").title()
@@ -88,185 +82,184 @@ def _process_moves(
                 level = vgd["level_learned_at"]
 
                 if method == "level-up" and level > 0:
-                    level_key = str(level)
-                    if level_key not in final_moves["level_up"]:
-                        final_moves["level_up"][level_key] = []
-                    final_moves["level_up"][level_key].append(move_name)
-
-                elif method == "machine":
-                    final_moves["machine"].append(move_name)
-
-                elif method == "tutor":
-                    final_moves["tutor"].append(move_name)
-
-                elif method == "egg":
-                    final_moves["egg"].append(move_name)
+                    final_moves["level_up"].setdefault(str(level), []).append(move_name)
+                elif method in final_moves:
+                    final_moves[method].append(move_name)
 
     final_moves["level_up"] = dict(
-        sorted(final_moves["level_up"].items(), key=lambda item: int(item[0]))
+        sorted((lvl, sorted(set(mv))) for lvl, mv in final_moves["level_up"].items())
     )
+    for key in ["machine", "tutor", "egg"]:
+        final_moves[key] = sorted(set(final_moves[key]))
 
-    for level in final_moves["level_up"]:
-        final_moves["level_up"][level] = sorted(
-            list(set(final_moves["level_up"][level]))
-        )
-
-    final_moves["machine"] = sorted(list(set(final_moves["machine"])))
-    final_moves["tutor"] = sorted(list(set(final_moves["tutor"])))
-    final_moves["egg"] = sorted(list(set(final_moves["egg"])))
-
-    return {key: value for key, value in final_moves.items() if value}
+    return {k: v for k, v in final_moves.items() if v}
 
 
 def _process_encounters(
     encounter_data: List[Dict[str, Any]], game_version_filter: str
 ) -> List[str]:
-    if not encounter_data:
-        return []
-
     locations = set()
-
     for encounter in encounter_data:
         for version_detail in encounter["version_details"]:
             if version_detail["version"]["name"] == game_version_filter:
                 location_name = encounter["location_area"]["name"]
-                cleaned_name = location_name.replace("-", " ").title()
-                locations.add(cleaned_name)
+                locations.add(location_name.replace("-", " ").title())
                 break
+    return sorted(locations)
 
-    return sorted(list(locations))
+
+def derive_speed_tier(speed: int) -> str:
+    return "fast" if speed >= 100 else "medium" if speed >= 70 else "slow"
+
+
+def derive_roles(stats: Dict[str, Any]) -> List[str]:
+    bs = stats["base_stats"]
+    atk, defn, spatk, spdef, speed, hp = (
+        bs["attack"],
+        bs["defense"],
+        bs["special-attack"],
+        bs["special-defense"],
+        bs["speed"],
+        bs["hp"],
+    )
+    offenses = stats["type_offenses"]
+    roles = []
+    if defn >= 100 and hp >= 80:
+        roles.append("Physical Wall")
+    if spdef >= 100 and hp >= 80:
+        roles.append("Special Wall")
+    if atk >= 120 and defn >= 90:
+        roles.append("Bulky Attacker")
+    if speed >= 100 and atk >= 100:
+        roles.append("Fast Sweeper")
+    if speed >= 100 and spatk >= 100:
+        roles.append("Special Sweeper")
+    if speed >= 90 and (atk >= 90 or spatk >= 90):
+        roles.append("Offensive Pivot")
+    if speed >= 70 and defn >= 80 and spdef >= 80:
+        roles.append("Defensive Pivot")
+    if "rock" in offenses["super_effective_against"] and defn >= 90:
+        roles.append("Hazard Setter")
+    if "flying" in offenses["super_effective_against"] and speed >= 80:
+        roles.append("Hazard Remover")
+    return sorted(set(roles))
 
 
 async def _get_pokemon_profile(
     client: AsyncClient,
-    pokemon_name: str,
+    name: str,
     data_groups: Optional[List[str]] = None,
     game_version: Optional[str] = None,
 ) -> dict[str, Any]:
-    pokemon_name = pokemon_name.lower()
-    game_version = game_version.lower() if game_version else None
-
-    version_group_filter = None
+    name = name.lower()
+    vg_filter = None
     if game_version:
-        version_data = await _fetch_url(client, f"{BASE_URL}/version/{game_version}")
-        if not version_data:
-            raise ModelRetry(f"Game version '{game_version}' not found.")
-        version_group_filter = version_data["version_group"]["name"]
+        vg_filter = (
+            await _fetch_url(
+                client, f"https://pokeapi.co/api/v2/version/{game_version}"
+            )
+        )["version_group"]["name"]
 
-    pokemon_task = _fetch_url(client, f"{BASE_URL}/pokemon/{pokemon_name}")
-    species_task = _fetch_url(client, f"{BASE_URL}/pokemon-species/{pokemon_name}")
-    pokemon, species = await asyncio.gather(pokemon_task, species_task)
-
-    if not species:
-        raise ModelRetry(f"Pokémon species '{pokemon_name}' not found.")
-    if not pokemon:
-        raise ModelRetry(f"Pokémon data for '{pokemon_name}' not found.")
-
-    evolution_chain_task = _fetch_url(client, species["evolution_chain"]["url"])
-    encounters_task = _fetch_url(client, pokemon["location_area_encounters"])
-    evolution_chain, encounters = await asyncio.gather(
-        evolution_chain_task, encounters_task
+    pokemon = await _fetch_url(client, f"https://pokeapi.co/api/v2/pokemon/{name}")
+    species = await _fetch_url(
+        client, f"https://pokeapi.co/api/v2/pokemon-species/{name}"
     )
+    evo_chain = await _fetch_url(client, species["evolution_chain"]["url"])
+    encounters = await _fetch_url(client, pokemon["location_area_encounters"])
 
-    if not evolution_chain:
-        raise ModelRetry("Could not fetch evolution chain data.")
+    types = [
+        t["type"]["name"] for t in sorted(pokemon["types"], key=lambda t: t["slot"])
+    ]
 
-    identity_data = {
-        "id": pokemon.get("id"),
-        "name": pokemon.get("name").capitalize(),
-        "genus": [
-            g["genus"] for g in species["genera"] if g["language"]["name"] == "en"
-        ],
-        "types": [t["type"]["name"] for t in pokemon["types"]],
-        "is_legendary": species.get("is_legendary"),
-        "is_mythical": species.get("is_mythical", False),
-        "is_baby": species.get("is_baby", False),
-    }
-
-    physical_data = {
-        "height_m": pokemon.get("height", 0) / 10.0,
-        "weight_kg": pokemon.get("weight", 0) / 10.0,
-        "color": species.get("color", {}).get("name"),
-        "shape": species.get("shape", {}).get("name"),
-    }
-
-    battle_stats_data = {
-        "base_stats": {s["stat"]["name"]: s["base_stat"] for s in pokemon["stats"]},
-        "type_defenses": calculate_type_defenses(
-            [t["type"]["name"] for t in pokemon["types"]]
-        ),
-        "abilities": [
-            a["ability"]["name"] + (" (hidden)" if a["is_hidden"] else "")
-            for a in pokemon["abilities"]
-        ],
-    }
-
-    training_data = {
-        "base_experience": pokemon.get("base_experience"),
-        "capture_rate": species.get("capture_rate"),
-        "growth_rate": species.get("growth_rate", {}).get("name"),
-        "egg_groups": [eg["name"] for eg in species.get("egg_groups", [])],
-        "gender_rate_female": (
-            f"{(species.get('gender_rate', -1) / 8.0):.1%}"
-            if species.get("gender_rate", -1) != -1
-            else "Genderless"
-        ),
-    }
-
-    evolution_data = {
-        "evolves_from": species.get("evolves_from_species", {}).get("name"),
-        "paths": _process_evolution_chain(evolution_chain["chain"]),
-    }
-
-    final_structured_profile = {
+    profile = {
         "summary": {
-            "identity": identity_data,
-            "physical_characteristics": physical_data,
+            "identity": {
+                "id": pokemon["id"],
+                "name": pokemon["name"].capitalize(),
+                "genus": [
+                    g["genus"]
+                    for g in species["genera"]
+                    if g["language"]["name"] == "en"
+                ],
+                "types": types,
+                "is_legendary": species["is_legendary"],
+                "is_mythical": species["is_mythical"],
+                "is_baby": species["is_baby"],
+            },
+            "physical_characteristics": {
+                "height_m": pokemon["height"] / 10.0,
+                "weight_kg": pokemon["weight"] / 10.0,
+                "color": species["color"]["name"],
+                "shape": species["shape"]["name"],
+            },
         },
         "battle_profile": {
-            "battle_stats": battle_stats_data,
-            "training_and_breeding": training_data,
-            "evolution": evolution_data,
+            "battle_stats": {
+                "base_stats": {
+                    s["stat"]["name"]: s["base_stat"] for s in pokemon["stats"]
+                },
+                "type_defenses": calculate_type_defenses(types),
+                "type_offenses": calculate_type_offenses(types),
+                "abilities": [
+                    a["ability"]["name"] + (" (hidden)" if a["is_hidden"] else "")
+                    for a in pokemon["abilities"]
+                ],
+            },
+            "training_and_breeding": {
+                "base_experience": pokemon["base_experience"],
+                "capture_rate": species["capture_rate"],
+                "growth_rate": species["growth_rate"]["name"],
+                "egg_groups": [g["name"] for g in species["egg_groups"]],
+                "gender_rate_female": (
+                    f"{(species['gender_rate'] / 8.0):.1%}"
+                    if species["gender_rate"] != -1
+                    else "Genderless"
+                ),
+            },
+            "evolution": {
+                "evolves_from": (
+                    species["evolves_from_species"]["name"]
+                    if species["evolves_from_species"]
+                    else None
+                ),
+                "paths": _process_evolution_chain(evo_chain["chain"]),
+            },
         },
-        "moves": _process_moves(pokemon["moves"], version_group_filter),
+        "moves": _process_moves(pokemon["moves"], vg_filter) if vg_filter else {},
         "ecology": {
-            "habitat": species.get("habitat", {}).get("name", "Unknown"),
-            "encounter_locations": _process_encounters(encounters, game_version),
+            "habitat": species["habitat"]["name"] if species["habitat"] else "Unknown",
+            "encounter_locations": (
+                _process_encounters(encounters, game_version) if game_version else []
+            ),
         },
         "lore": {
-            "pokedex_entries": _process_pokedex_entries(species["flavor_text_entries"])
+            "pokedex_entries": _process_pokedex_entries(species["flavor_text_entries"]),
         },
     }
 
-    pretty_print(final_structured_profile)
+    profile["battle_profile"]["battle_stats"]["roles"] = derive_roles(
+        profile["battle_profile"]["battle_stats"]
+    )
+    profile["battle_profile"]["battle_stats"]["speed_tier"] = derive_speed_tier(
+        profile["battle_profile"]["battle_stats"]["base_stats"]["speed"]
+    )
+
+    pretty_print(profile)
 
     if not data_groups:
-        data_groups = [
-            "summary",
-        ]
-
-    return {
-        group: final_structured_profile[group]
-        for group in data_groups
-        if group in final_structured_profile
-    }
+        data_groups = ["summary"]
+    return {k: profile[k] for k in data_groups if k in profile}
 
 
 async def _get_pokemon_profiles(
     client: AsyncClient,
-    pokemon_names: List[str],
+    names: List[str],
     data_groups: Optional[List[str]] = None,
     game_version: Optional[str] = None,
 ) -> dict[str, Any]:
     tasks = {
         name: _get_pokemon_profile(client, name, data_groups, game_version)
-        for name in pokemon_names
+        for name in names
     }
-    results = await asyncio.gather(*tasks.values(), return_exceptions=True)
-    profiles = {}
-    for name, result in zip(tasks.keys(), results):
-        if isinstance(result, Exception):
-            profiles[name] = {"error": str(result)}
-        else:
-            profiles[name] = result
-    return profiles
+    results = await asyncio.gather(*tasks.values())
+    return dict(zip(tasks.keys(), results))

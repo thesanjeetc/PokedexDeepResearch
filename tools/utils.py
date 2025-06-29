@@ -13,8 +13,12 @@ from async_lru import alru_cache
 BASE_URL = "https://pokeapi.co/api/v2"
 
 
-def pretty_print(data: dict):
-    """Pretty print a dictionary with optional title."""
+def pretty_print(data):
+    """Pretty print a dictionary or Pydantic model."""
+    if hasattr(data, "model_dump"):  # Pydantic v2
+        data = data.model_dump()
+    elif hasattr(data, "dict"):  # Pydantic v1
+        data = data.dict()
     print(json.dumps(data, indent=2, ensure_ascii=False))
 
 
