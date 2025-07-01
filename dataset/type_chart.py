@@ -4,11 +4,11 @@ from pathlib import Path
 from typing import Dict, List, Optional
 from httpx import AsyncClient
 from functools import lru_cache
-from dataset.utils import _fetch_url, BASE_URL
+from dataset.utils import fetch_url, BASE_URL
 
 
 async def fetch_type_list(client: AsyncClient) -> List[str]:
-    data = await _fetch_url(client, f"{BASE_URL}/type/")
+    data = await fetch_url(client, f"{BASE_URL}/type/")
     return [
         entry["name"]
         for entry in data["results"]
@@ -19,7 +19,7 @@ async def fetch_type_list(client: AsyncClient) -> List[str]:
 async def fetch_type_effectiveness(
     client: AsyncClient, type_id: int, all_types: List[str]
 ) -> Optional[Dict[str, Dict[str, float]]]:
-    data = await _fetch_url(client, f"{BASE_URL}/type/{type_id}")
+    data = await fetch_url(client, f"{BASE_URL}/type/{type_id}")
 
     type_name = data["name"]
     default = {t: 1.0 for t in all_types}
