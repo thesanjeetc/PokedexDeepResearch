@@ -62,6 +62,33 @@ class TeamAnalysisSummary(BaseModel):
 async def analyse_pokemon_team(
     pokemon_names: List[str], game_version: Optional[VersionGroup] = None
 ) -> TeamAnalysisSummary:
+    """
+    Analyzes a team of Pokémon and returns detailed offensive and defensive summaries,
+    including weaknesses, resistances, and strategic role distributions.
+
+    This tool is ideal for evaluating team synergy, identifying coverage gaps,
+    and understanding potential threats based on type matchups and battle roles.
+
+    Args:
+        pokemon_names (List[str]): List of Pokémon names to analyze. Must match dataset names.
+        game_version (VersionGroup, optional): Game version to extract strategic role tags
+                                               from movesets. Affects strategic role distribution.
+
+    Returns:
+        TeamAnalysisSummary: An object containing:
+            - team_summary: Basic breakdown (types, roles, speed tiers, strategic tags).
+            - offense_analysis:
+                - coverage_map: Types this team can hit super-effectively, and who provides it.
+                - coverage_gaps: Types the team lacks effective coverage against.
+                - coverage_redundancy: How many Pokémon overlap in each type's coverage.
+            - defense_analysis:
+                - top_threats: Types that deal the most collective damage to the team.
+                - shared_weaknesses: Types multiple teammates are weak to.
+                - coverage_gaps: Types the team does not resist or block.
+                - resistances_summary: Count of how many Pokémon resist each type.
+            - pokemon_profiles: Simplified battle-focused profiles for each Pokémon, including
+                                offensive/defensive typing, roles, and speed tier.
+    """
     df = load_pokemon_dataset()
     df = df[df.index.isin([name.lower() for name in pokemon_names])]
 

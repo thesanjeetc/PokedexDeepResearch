@@ -90,6 +90,40 @@ async def search_pokemon_by_criteria(
     habitat: Optional[List[PokemonHabitat]] = None,
     limit: int = 25,
 ) -> List[dict]:
+    """
+    Searches for Pokémon matching complex criteria related to typing, roles, stats, resistances,
+    game-specific tags, and ecological characteristics.
+
+    This tool supports advanced filtering logic for team builders, game designers, and researchers
+    interested in curated subsets of Pokémon.
+
+    Args:
+        include_types (List[PokemonType], optional): Return only Pokémon that match at least one of these types.
+        exclude_types (List[PokemonType], optional): Exclude Pokémon that match any of these types.
+        include_roles (List[PokemonRole], optional): Return only Pokémon with at least one matching battle role.
+        speed_tiers (List[SpeedTier], optional): Return only Pokémon with a matching speed tier (e.g., 'fast').
+        attack_focus (List[AttackFocus], optional): Filter by offensive style (physical, special, or balanced).
+        defense_categories (List[DefenseCategory], optional): Filter by defensive durability (fragile to bulky).
+        base_stat_tier (List[BaseStatTier], optional): Filter by total base stat tier (e.g., 'high', 'low').
+        strategic_tags (List[StrategicRoleTag], optional): Include only Pokémon with specific strategic move tags,
+                                                           such as 'pivot' or 'hazard-remover'. Requires `game_version`.
+        required_resists (List[PokemonType], optional): Return only Pokémon that resist **all** of the specified types.
+        required_immunities (List[PokemonType], optional): Return only Pokémon immune to **all** of the given types.
+        exclude_weaknesses (List[PokemonType], optional): Exclude Pokémon that are weak to **any** of the specified types.
+        game_version (VersionGroup, optional): The game version used to evaluate strategic tags from movesets.
+        is_legendary (bool, optional): Whether to include only legendary Pokémon (True), or exclude them (False).
+        is_mythical (bool, optional): Whether to include only mythical Pokémon (True), or exclude them (False).
+        is_baby (bool, optional): Whether to include only baby Pokémon (True), or exclude them (False).
+        shape (List[PokemonShape], optional): Filter by body shape (e.g., bipedal, quadruped, fish).
+        color (List[PokemonColor], optional): Filter by official color classification (e.g., red, yellow, pink).
+        habitat (List[PokemonHabitat], optional): Filter by natural habitat (e.g., forest, cave, sea).
+        limit (int, optional): The maximum number of results to return (default = 25).
+
+    Returns:
+        str: A CSV-formatted string containing selected columns for the matching Pokémon.
+             Columns include: 'name', 'types', 'speed_tier', 'attack_focus',
+             'defense_category', 'bst_tier'.
+    """
     df = load_pokemon_dataset()
     df = df.reset_index()
 
