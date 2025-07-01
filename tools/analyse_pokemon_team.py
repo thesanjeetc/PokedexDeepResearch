@@ -2,11 +2,11 @@ import asyncio
 import json
 from typing import Dict, List
 from collections import defaultdict
-from httpx import AsyncClient
-from pydantic import BaseModel, Field
-from tools.utils import pretty_print
-from tools.get_pokemon_profiles import _get_pokemon_profiles
+from pydantic import BaseModel
 from dataset.type_chart import fetch_type_chart
+from dataset.utils import load_pokemon_dataset
+from resources.enums import VersionGroup
+from typing import Optional
 
 
 class PokemonVulnerabilityProfile(BaseModel):
@@ -36,6 +36,7 @@ class TeamSummary(BaseModel):
     types: Dict[str, int]
     speed_distribution: Dict[str, int]
     role_distribution: Dict[str, int]
+    strategic_distribution: Dict[str, int]
 
 
 class TeamOffenseAnalysis(BaseModel):
@@ -58,10 +59,11 @@ class TeamAnalysisSummary(BaseModel):
     pokemon_profiles: Dict[str, PokemonTeamProfile]
 
 
-async def analyse_team(pokemon_names: List[str]) -> TeamAnalysisSummary:
-    team_profiles = await _get_pokemon_profiles(
-        pokemon_names, ["summary", "battle_profile"]
-    )
+async def analyse_pokemon_team(
+    pokemon_names: List[str], game_version: Optional[VersionGroup] = None
+) -> TeamAnalysisSummary:
+    df = load_pokemon_dataset()
+    df = df[df.index.isin([name.lower() for name in pokemon_names])]
 
     pokemon_profiles = {}
     type_counts = defaultdict(int)
@@ -72,37 +74,51 @@ async def analyse_team(pokemon_names: List[str]) -> TeamAnalysisSummary:
     resistances_total = defaultdict(int)
     resistances_set = set()
     top_threats = {}
+    strategic_counts = defaultdict(int)
     weakness_counts = defaultdict(int)
 
     all_types = set(fetch_type_chart().keys())
 
-    for name, profile in team_profiles.items():
-        stats = profile["battle_profile"]["battle_stats"]
-        types = profile["summary"]["identity"]["types"]
-
-        for t in stats["type_defenses"]["resists_2x"]:
+    for name, profile in df.iterrows():
+        for t in profile["resists_2x"]:
             resistances_total[t] += 1
             resistances_set.add(t)
-        for t in stats["type_defenses"]["resists_4x"]:
+        for t in profile["resists_4x"]:
             resistances_total[t] += 1
             resistances_set.add(t)
-        for t in stats["type_defenses"]["immune_to"]:
+        for t in profile["immune_to"]:
             resistances_total[t] += 1
             resistances_set.add(t)
 
-        for t in stats["type_defenses"]["weak_to_2x"]:
+        for t in profile["weak_to_2x"]:
             weakness_counts[t] += 1
             top_threats[t] = max(top_threats.get(t, 0.0), 2.0)
-        for t in stats["type_defenses"]["weak_to_4x"]:
+        for t in profile["weak_to_4x"]:
             weakness_counts[t] += 1
             top_threats[t] = 4.0
 
-        offense = PokemonOffenseProfile(**stats["type_offenses"])
-        defense = PokemonVulnerabilityProfile(**stats["type_defenses"])
-        roles = stats["roles"]
-        speed = stats["speed_tier"]
+        game_moves = profile["moves"].get(game_version, {})
+        tags = game_moves.get("strategic_tags", [])
+        for tag in tags:
+            strategic_counts[tag] += 1
 
-        for t in types:
+        offense = PokemonOffenseProfile(
+            super_effective_against=profile["super_effective_against"],
+            not_very_effective_against=profile["not_very_effective_against"],
+            no_effect_against=profile["no_effect_against"],
+        )
+        defense = PokemonVulnerabilityProfile(
+            immune_to=profile["immune_to"],
+            resists_4x=profile["resists_4x"],
+            resists_2x=profile["resists_2x"],
+            weak_to_2x=profile["weak_to_2x"],
+            weak_to_4x=profile["weak_to_4x"],
+        )
+
+        roles = profile["roles"]
+        speed = profile["speed_tier"]
+
+        for t in profile["types"]:
             type_counts[t] += 1
         for r in roles:
             role_counts[r] += 1
@@ -113,7 +129,7 @@ async def analyse_team(pokemon_names: List[str]) -> TeamAnalysisSummary:
             offense_total_types.add(t)
 
         pokemon_profiles[name] = PokemonTeamProfile(
-            types=types,
+            types=profile["types"],
             roles=roles,
             speed_tier=speed,
             offense=offense,
@@ -131,6 +147,7 @@ async def analyse_team(pokemon_names: List[str]) -> TeamAnalysisSummary:
             types=dict(type_counts),
             role_distribution=dict(role_counts),
             speed_distribution=dict(speed_counts),
+            strategic_distribution=dict(strategic_counts),
         ),
         offense_analysis=TeamOffenseAnalysis(
             coverage_map=dict(coverage_map),
@@ -146,5 +163,4 @@ async def analyse_team(pokemon_names: List[str]) -> TeamAnalysisSummary:
         pokemon_profiles=pokemon_profiles,
     )
 
-    pretty_print(analysis)
     return analysis
