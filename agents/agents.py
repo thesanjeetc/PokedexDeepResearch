@@ -11,7 +11,7 @@ import logfire
 logfire.configure()
 logfire.instrument_pydantic_ai()
 
-from pydantic_ai.agent import Agent, RunContext
+from pydantic_ai.agent import Agent, RunContext, Tool
 from pydantic_ai.models.openai import OpenAIModel
 from agents.models import (
     State,
@@ -36,6 +36,7 @@ from tools.search_pokemon_by_criteria import search_pokemon_by_criteria
 from agents.utils import format_execution_results
 
 model = OpenAIModel("gpt-4o")
+thinking_model = OpenAIModel("o3")
 
 clarify_agent = Agent(
     model,
@@ -56,22 +57,28 @@ outline_agent = Agent(
 )
 
 plan_evaluate_agent = Agent(
-    model,
+    thinking_model,
     output_type=ExecutionPlan,
     deps_type=State,
-    retries=2,
+    retries=1,
 )
+
+MAX_TOOL_RETRIES = 3
 
 execute_agent = Agent(
     model,
     output_type=ExecutionOutput,
     deps_type=State,
-    tools=[get_pokemon_profiles, analyse_pokemon_team, search_pokemon_by_criteria],
-    retries=2,
+    tools=[
+        Tool(get_pokemon_profiles, max_retries=MAX_TOOL_RETRIES),
+        Tool(analyse_pokemon_team, max_retries=MAX_TOOL_RETRIES),
+        Tool(search_pokemon_by_criteria, max_retries=MAX_TOOL_RETRIES),
+    ],
+    retries=1,
 )
 
 report_agent = Agent(
-    model, output_type=str, deps_type=State, system_prompt=REPORT_PROMPT
+    thinking_model, output_type=str, deps_type=State, system_prompt=REPORT_PROMPT
 )
 
 
