@@ -89,7 +89,7 @@ def dynamic_execute_prompt(ctx: RunContext[State]) -> str:
     return EXECUTE_PROMPT.format(user_prompt=ctx.deps.user_prompt)
 
 
-@plan_evaluate_agent.system_prompt
+@report_agent.system_prompt
 def dynamic_report_prompt(ctx: RunContext[State]) -> str:
     return REPORT_PROMPT.format(
         user_prompt=ctx.deps.user_prompt,
