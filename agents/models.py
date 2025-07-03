@@ -30,10 +30,7 @@ class ExecutionPlan(BaseModel):
 
 
 class ExecutionOutput(BaseModel):
-    is_success: bool = Field(
-        default=False,
-        description="Indicates if the tool execution resulted in valuable data.",
-    )
+    is_success: bool = Field(default=False)
     summary: str
 
 

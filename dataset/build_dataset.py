@@ -118,19 +118,11 @@ async def get_pokemon_profile(client: AsyncClient, name: str) -> dict[str, Any]:
     }
 
 
-import json
-from collections import defaultdict
-
-# --- HELPER FUNCTIONS FOR THE MAIN FORMATTER ---
-
-
 def _format_name(s):
-    """Helper to format names like 'lightning-rod' into 'Lightning Rod'."""
     return " ".join(word.capitalize() for word in s.replace("-", " ").split())
 
 
 def _transform_abilities(raw_abilities):
-    """Converts [{'name': '...', 'is_hidden': bool}] to ["Name", "Name (Hidden)"]."""
     if not raw_abilities:
         return []
     return [
@@ -144,7 +136,6 @@ def _transform_abilities(raw_abilities):
 
 
 def _transform_evolutions(raw_paths):
-    """Converts the complex evolution path list into simple, readable strings."""
     if not raw_paths:
         return []
     return [
@@ -154,16 +145,11 @@ def _transform_evolutions(raw_paths):
 
 
 def _transform_locations_by_game(raw_locations):
-    """
-    Keeps the {game: [locations]} structure but cleans up the location names.
-    """
     if not raw_locations:
         return {}
 
     cleaned_data = {}
-    # Iterate through games and their location lists
     for game, loc_list in raw_locations.items():
-        # Clean each location name, remove duplicates with set(), and re-sort
         cleaned_list = sorted(
             list(set(loc.replace(" Area", "").strip() for loc in loc_list))
         )
@@ -173,15 +159,11 @@ def _transform_locations_by_game(raw_locations):
 
 
 def _transform_pokedex_by_game(raw_entries):
-    """
-    Keeps the {game: text} structure but cleans the text for each entry.
-    """
     if not raw_entries:
         return {}
 
     cleaned_data = {}
     for game, text in raw_entries.items():
-        # Normalize text to fix common inconsistencies
         clean_text = (
             text.replace("POKéMON", "Pokémon")
             .replace("BERRIES", "berries")

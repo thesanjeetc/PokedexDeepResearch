@@ -150,9 +150,8 @@ class Execute(BaseNode[State]):
                     )
                 )
 
-                # Stream error to user
                 await step.stream_token(f"\n\n❌ _{query}_:\n{user_message}")
-                continue  # Skip to next response
+                continue
 
             tool_message = response.all_messages()[2].parts[0]
             tool_name = tool_message.tool_name
@@ -175,38 +174,6 @@ class Execute(BaseNode[State]):
 
         await step.update()
         return PlanEvaluate()
-
-
-# @dataclass
-# class Report(BaseNode[State]):
-#     async def run(self, ctx: GraphRunContext[State]) -> End:
-#         step = cl.Step(name="📊 Generating Report", type="run")
-#         await step.send()
-
-#         response = await report_agent.run(deps=ctx.state)
-#         ctx.state.report = response.output
-
-#         await step.stream_token("✅ Report complete.")
-#         await step.update()
-
-#         text_elements = []
-#         for i, source in enumerate(ctx.state.execution_results):
-#             if source.is_success:
-#                 source_name = f"{source.tool_name} [{i}]"
-#                 text_elements.append(
-#                     cl.Text(
-#                         content=source.summary,
-#                         name=source_name,
-#                         display="side",
-#                     )
-#                 )
-
-#         source_names = [text_el.name for text_el in text_elements]
-#         final_report = response.output + "\n\nSources: " + " ".join(source_names)
-
-#         await cl.Message(content=final_report, elements=text_elements).send()
-#         return End(data=ctx.state)
-
 
 @dataclass
 class Report(BaseNode[State]):

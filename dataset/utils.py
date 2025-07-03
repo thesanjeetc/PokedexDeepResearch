@@ -1,5 +1,5 @@
 import pandas as pd
-from typing import Optional, Any, List, Dict
+from typing import Optional, Any, List, Dict, Set
 from httpx import AsyncClient
 from async_lru import alru_cache
 from collections import defaultdict
@@ -193,9 +193,6 @@ def process_evolution_chain(chain_link: Dict[str, Any]) -> List[Dict[str, Any]]:
         paths.extend(process_evolution_chain(evolution))
 
     return paths
-
-
-from typing import Dict, Any, List, Set
 
 STRATEGIC_MOVE_TAGS: Dict[str, Set[str]] = {
     "pivot": {"u-turn", "volt switch", "flip turn", "parting shot"},
