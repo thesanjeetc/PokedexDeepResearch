@@ -25,14 +25,24 @@ _PARQUET_PATH = "resources/pokemon.parquet"
 _cached_df = None
 
 
+def normalize(data):
+    if isinstance(data, np.ndarray):
+        return data.tolist()
+    elif isinstance(data, (np.integer, np.floating, np.bool_)):
+        return data.item()
+    elif isinstance(data, dict):
+        return {k: normalize(v) for k, v in data.items()}
+    elif isinstance(data, (list, tuple)):
+        return [normalize(i) for i in data]
+    return data
+
+
 def load_pokemon_dataset() -> pd.DataFrame:
     global _cached_df
     if _cached_df is None:
         _cached_df = pd.read_parquet(_PARQUET_PATH)
         for col in _cached_df.columns:
-            _cached_df[col] = _cached_df[col].apply(
-                lambda x: x.tolist() if isinstance(x, np.ndarray) else x
-            )
+            _cached_df[col] = _cached_df[col].apply(normalize)
     return _cached_df
 
 

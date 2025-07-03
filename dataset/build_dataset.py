@@ -310,8 +310,7 @@ def format_pokemon_profile(data):
         "moves": moves_formatted,
         "lore": {"pokedex_entries": pokedex_formatted},
     }
-
-    return full_profile
+    return json.dumps(full_profile)
 
 
 async def get_all_pokemon(client: AsyncClient):

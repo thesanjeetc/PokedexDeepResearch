@@ -11,9 +11,7 @@ from resources.enums import (
 )
 
 from enum import Enum
-
-
-from enum import Enum
+from tools.utils import safe_convert
 
 
 class PokemonRole(str, Enum):
@@ -68,6 +66,8 @@ class BaseStatTier(str, Enum):
     high = "high"
     very_high = "very-high"
 
+MAX_LIMIT = 50
+
 
 async def search_pokemon_by_criteria(
     include_types: Optional[List[PokemonType]] = None,
@@ -88,13 +88,10 @@ async def search_pokemon_by_criteria(
     shape: Optional[List[PokemonShape]] = None,
     color: Optional[List[PokemonColor]] = None,
     habitat: Optional[List[PokemonHabitat]] = None,
-    limit: int = 25,
 ) -> List[dict]:
     """
     Searches for Pokémon matching complex criteria related to typing, roles, stats, resistances,
-    game-specific tags, and ecological characteristics.
-
-    This tool supports advanced filtering logic for team builders, game designers, and researchers
+    game-specific tags, and ecological characteristics. This tool supports advanced filtering logic for team builders, game designers, and researchers
     interested in curated subsets of Pokémon.
 
     Args:
@@ -117,7 +114,6 @@ async def search_pokemon_by_criteria(
         shape (List[PokemonShape], optional): Filter by body shape (e.g., bipedal, quadruped, fish).
         color (List[PokemonColor], optional): Filter by official color classification (e.g., red, yellow, pink).
         habitat (List[PokemonHabitat], optional): Filter by natural habitat (e.g., forest, cave, sea).
-        limit (int, optional): The maximum number of results to return (default = 25).
 
     Returns:
         str: A CSV-formatted string containing selected columns for the matching Pokémon.
@@ -129,28 +125,21 @@ async def search_pokemon_by_criteria(
 
     if include_types:
         df = df[df["types"].apply(lambda x: any(t in x for t in include_types))]
-        print(f"After include_types: {len(df)}")
 
     if not df.empty and exclude_types:
         df = df[~df["types"].apply(lambda x: any(t in x for t in exclude_types))]
-        print(f"After exclude_types: {len(df)}")
 
     if not df.empty and include_roles:
         df = df[df["roles"].apply(lambda x: any(r in x for r in include_roles))]
-        print(f"After include_roles: {len(df)}")
 
     if not df.empty and speed_tiers:
         df = df[df["speed_tier"].isin(speed_tiers)]
-        print(f"After speed_tiers: {len(df)}")
     if not df.empty and attack_focus:
         df = df[df["attack_focus"].isin(attack_focus)]
-        print(f"After attack_focus: {len(df)}")
     if not df.empty and defense_categories:
         df = df[df["defense_category"].isin(defense_categories)]
-        print(f"After defense_categories: {len(df)}")
     if not df.empty and base_stat_tier:
         df = df[df["bst_tier"].isin(base_stat_tier)]
-        print(f"After base_stat_tier: {len(df)}")
     if not df.empty and strategic_tags and game_version:
         df["game_moves"] = df["moves"].apply(lambda mv: mv.get(game_version, {}))
         df["strategic_tags"] = df["game_moves"].apply(
@@ -161,51 +150,41 @@ async def search_pokemon_by_criteria(
                 lambda tags: any(tag in tags for tag in strategic_tags)
             )
         ]
-        print(f"After strategic_tags: {len(df)}")
 
     if not df.empty and required_resists:
         df = df[
             df["resists_2x"].apply(lambda x: all(t in x for t in required_resists))
             | df["resists_4x"].apply(lambda x: all(t in x for t in required_resists))
         ]
-        print(f"After required_resists: {len(df)}")
 
     if not df.empty and required_immunities:
         df = df[
             df["immune_to"].apply(lambda x: all(t in x for t in required_immunities))
         ]
-        print(f"After required_immunities: {len(df)}")
 
     if not df.empty and exclude_weaknesses:
         df = df[
             ~df["weak_to_2x"].apply(lambda x: any(t in x for t in exclude_weaknesses))
             & ~df["weak_to_4x"].apply(lambda x: any(t in x for t in exclude_weaknesses))
         ]
-        print(f"After exclude_weaknesses: {len(df)}")
 
     if not df.empty and is_legendary is not None:
         df = df[df["is_legendary"] == is_legendary]
-        print(f"After is_legendary: {len(df)}")
 
     if not df.empty and is_mythical is not None:
         df = df[df["is_mythical"] == is_mythical]
-    print(f"After is_mythical: {len(df)}")
 
     if not df.empty and is_baby is not None:
         df = df[df["is_baby"] == is_baby]
-    print(f"After is_baby: {len(df)}")
 
     if not df.empty and shape:
         df = df[df["shape"].isin(shape)]
-        print(f"After shape: {len(df)}")
 
     if not df.empty and color:
         df = df[df["color"].isin(color)]
-        print(f"After color: {len(df)}")
 
     if not df.empty and habitat:
         df = df[df["habitat"].isin(habitat)]
-        print(f"After habitat: {len(df)}")
 
     selected_columns = [
         "name",
@@ -216,4 +195,4 @@ async def search_pokemon_by_criteria(
         "bst_tier",
     ]
 
-    return df.head(limit)[selected_columns].to_csv(index=False)
+    return df.head(MAX_LIMIT)[selected_columns].to_csv(index=False)

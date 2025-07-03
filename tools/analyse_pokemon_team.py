@@ -64,9 +64,7 @@ async def analyse_pokemon_team(
 ) -> TeamAnalysisSummary:
     """
     Analyzes a team of Pokémon and returns detailed offensive and defensive summaries,
-    including weaknesses, resistances, and strategic role distributions.
-
-    This tool is ideal for evaluating team synergy, identifying coverage gaps,
+    including weaknesses, resistances, and strategic role distributions. This tool is ideal for evaluating team synergy, identifying coverage gaps,
     and understanding potential threats based on type matchups and battle roles.
 
     Args:

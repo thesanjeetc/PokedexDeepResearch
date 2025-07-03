@@ -2,6 +2,8 @@ from typing import List, Dict, Optional, Any, Literal
 from dataset.utils import load_pokemon_dataset
 from resources.enums import VersionGroup
 from enum import Enum
+from tools.utils import pretty_print
+import json
 
 
 class DataGroup(str, Enum):
@@ -35,10 +37,7 @@ async def get_pokemon_profiles(
     game_version: Optional[VersionGroup] = None,
 ) -> Dict[str, Any]:
     """
-    Retrieves structured Pokémon data for one or more Pokémon, optionally filtered by game version.
-
-    This tool allows querying specific sections ("data groups") of Pokémon information in a consistent,
-    LLM-friendly format. If no `data_groups` are specified, only the 'profile' group is returned by default.
+    Retrieves structured Pokémon data for one or more Pokémon, optionally filtered by game version. This tool allows querying specific sections ("data groups") of Pokémon information in a consistent, LLM-friendly format. If no `data_groups` are specified, only the 'profile' group is returned by default.
 
     Args:
         pokemon_names (List[str]): A list of Pokémon names or Pokédex IDs to retrieve.
@@ -70,7 +69,8 @@ async def get_pokemon_profiles(
             continue
 
         row = df.loc[name]
-        profile = row["full_profile"]
+        print(row["full_profile"])
+        profile = json.loads(row["full_profile"])
         result_profile: Dict[str, Any] = {}
 
         for group in data_groups:
@@ -89,5 +89,7 @@ async def get_pokemon_profiles(
                 result_profile[group] = profile[group]
 
         results[name] = result_profile
+
+    print(results)
 
     return results
