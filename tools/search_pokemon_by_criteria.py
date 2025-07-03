@@ -11,7 +11,6 @@ from resources.enums import (
 )
 
 from enum import Enum
-from tools.utils import safe_convert
 
 
 class PokemonRole(str, Enum):
@@ -66,7 +65,7 @@ class BaseStatTier(str, Enum):
     high = "high"
     very_high = "very-high"
 
-MAX_LIMIT = 50
+MAX_LIMIT = 100
 
 
 async def search_pokemon_by_criteria(
