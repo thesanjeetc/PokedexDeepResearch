@@ -18,4 +18,4 @@ COPY . .
 
 EXPOSE 8000
 
-CMD ["chainlit", "run", "app.py", "-p", "8000"]
+CMD ["uv", "run", "chainlit", "run", "app.py", "--host", "0.0.0.0", "--port", "8000"]
