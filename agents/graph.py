@@ -21,6 +21,7 @@ from agents.agents import (
     report_agent,
 )
 from pydantic_ai.usage import UsageLimits
+from agents.utils import format_execution_error
 import chainlit as cl
 
 
@@ -136,6 +137,23 @@ class Execute(BaseNode[State]):
         responses = await asyncio.gather(*tasks, return_exceptions=True)
 
         for query, response in zip(queries, responses):
+            if isinstance(response, Exception):
+                user_message = format_execution_error(response, query=query)
+
+                ctx.state.execution_results.append(
+                    ExecutionResult(
+                        query=query,
+                        tool_name="Unknown",
+                        tool_output=user_message,
+                        is_success=False,
+                        summary=user_message,
+                    )
+                )
+
+                # Stream error to user
+                await step.stream_token(f"\n\n❌ _{query}_:\n{user_message}")
+                continue  # Skip to next response
+
             tool_message = response.all_messages()[2].parts[0]
             tool_name = tool_message.tool_name
             tool_output = tool_message.content
