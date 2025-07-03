@@ -1,11 +1,10 @@
 import os
+from posthog import api_key
 from tavily import TavilyClient
 import os
 
-print("TAVILY_API_KEY:", os.getenv("TAVILY_API_KEY"))
 api_key = os.getenv("TAVILY_API_KEY")
 client = TavilyClient(api_key)
-
 
 async def search_pokemon_web(query: str):
     """
