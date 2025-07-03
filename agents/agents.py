@@ -9,7 +9,9 @@ from pydantic_ai import Agent
 import logfire
 
 import os
+from dotenv import load_dotenv
 
+load_dotenv(override=True)
 if os.getenv("LOGFIRE_TOKEN"):
     logfire.configure()
     logfire.instrument_pydantic_ai()
@@ -62,6 +64,7 @@ outline_agent = Agent(
     model,
     output_type=ResearchOutline,
     system_prompt=OUTLINE_PROMPT,
+    deps_type=State,
 )
 
 plan_evaluate_agent = Agent(

@@ -138,6 +138,7 @@ class Execute(BaseNode[State]):
 
         for query, response in zip(queries, responses):
             if isinstance(response, Exception):
+                print(f"\n\nError executing query '{query}': \n{response}")
                 user_message = format_execution_error(response, query=query)
 
                 ctx.state.execution_results.append(
@@ -150,7 +151,7 @@ class Execute(BaseNode[State]):
                     )
                 )
 
-                await step.stream_token(f"\n\n❌ _{query}_:\n{user_message}")
+                await step.stream_token(f"\n\n❌ _{query}_")
                 continue
 
             tool_message = response.all_messages()[2].parts[0]
