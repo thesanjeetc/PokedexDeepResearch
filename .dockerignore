@@ -1,0 +1,37 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environments
+.env/
+.venv/
+env/
+venv/
+
+# OS or editor files
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Docker
+Dockerfile
+.dockerignore
+
+# Logs and temp files
+*.log
+*.tmp
+*.swp
+
+# Jupyter notebooks (if not needed in image)
+*.ipynb
+
+# IDE settings
+.vscode/
+.idea/
+
+# Avoid copying test files (optional)
+tests/
