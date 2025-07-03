@@ -8,6 +8,7 @@ dependencies = [
     "async-lru>=2.0.5",
     "chainlit>=2.6.0",
     "logfire[httpx]>=3.21.2",
+    "pandas>=2.3.0",
     "pyarrow>=20.0.0",
     "pydantic-ai[logfire]>=0.3.4",
     "tavily-python>=0.7.9",
