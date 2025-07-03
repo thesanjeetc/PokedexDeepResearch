@@ -8,8 +8,11 @@ from pydantic import BaseModel, Field
 from pydantic_ai import Agent
 import logfire
 
-logfire.configure()
-logfire.instrument_pydantic_ai()
+import os
+
+if os.getenv("LOGFIRE_TOKEN"):
+    logfire.configure()
+    logfire.instrument_pydantic_ai()
 
 from pydantic_ai.agent import Agent, RunContext, Tool
 from pydantic_ai.tools import ToolDefinition
