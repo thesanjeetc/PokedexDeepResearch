@@ -10,3 +10,7 @@ temp/
 
 # Virtual environments
 .venv
+
+.chainlit
+.files
+.logfire
