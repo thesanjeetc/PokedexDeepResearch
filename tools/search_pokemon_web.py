@@ -4,7 +4,9 @@ from tavily import TavilyClient
 import os
 
 api_key = os.getenv("TAVILY_API_KEY")
-client = TavilyClient(api_key)
+client = None
+if api_key:
+    client = TavilyClient(api_key)
 
 async def search_pokemon_web(query: str):
     """
@@ -16,6 +18,10 @@ async def search_pokemon_web(query: str):
     Returns:
         str: A synthesized, natural language answer to the query, compiled from the search results from the trusted Pokémon websites. If no definitive answer can be found, it may return a summary of the most relevant search results.
     """
+    if not client:
+        return (
+            "Web search functionality is not available. Please try alternative methods."
+        )
     response = client.search(
         query=query,
         search_depth="advanced",
