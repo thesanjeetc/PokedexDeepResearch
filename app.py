@@ -2,10 +2,24 @@ import chainlit as cl
 from agents.models import State
 from agents.graph import Outline, PlanEvaluate, Execute, Report
 from pydantic_graph import Graph, GraphRunContext
-from agents.agents import clarify_agent, refine_agent
+from agents.agents import clarify_agent, refine_agent, basic_agent
 from agents.models import FollowUpQuestions, RefinedPrompt
 
 graph = Graph(nodes=(Outline, PlanEvaluate, Execute, Report))
+
+
+@cl.set_chat_profiles
+async def chat_profile():
+    return [
+        cl.ChatProfile(
+            name="Pokedex Deep Research",
+            markdown_description="A deep research assistant for Pokémon queries.",
+        ),
+        cl.ChatProfile(
+            name="ChatGPT-4o",
+            markdown_description="Uses the ChatGPT-4o model for comparison.",
+        ),
+    ]
 
 
 async def run_clarify_turn(user_input: str, state: State, max_turns: int = 3):
@@ -47,6 +61,32 @@ async def on_chat_start():
 @cl.on_message
 async def on_message(msg: cl.Message):
     state = cl.user_session.get("state")
+    chat_profile = cl.user_session.get("chat_profile")
+
+    if chat_profile == "ChatGPT-4o":
+        response = await basic_agent.run(msg.content)
+        await cl.Message(content=response.output, author="ChatGPT-4o").send()
+        return
 
     if await run_clarify_turn(msg.content, state):
         await graph.run(start_node=Outline(prompt=state.user_prompt), state=state)
+        text_elements = []
+        for i, source in enumerate(state.execution_results):
+            if source.is_success:
+                source_name = source.tool_name
+                text_elements.append(
+                    cl.Text(
+                        content=source.summary,
+                        name=source_name,
+                        display="side",
+                    )
+                )
+        await cl.Message(
+            content="✅ Report generated.",
+            author="Agent",
+            elements=[
+                cl.Text(name="📄 Report", content=state.report),
+                *text_elements,
+            ],
+        ).send()
+        cl.user_session.set("state", State())

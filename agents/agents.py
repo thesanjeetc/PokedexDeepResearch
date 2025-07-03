@@ -81,6 +81,12 @@ report_agent = Agent(
     thinking_model, output_type=str, deps_type=State, system_prompt=REPORT_PROMPT
 )
 
+basic_agent = Agent(
+    OpenAIModel("chatgpt-4o-latest"),
+    output_type=str,
+    system_prompt="You are a helpful Pokemon assistant.",
+)
+
 
 @plan_evaluate_agent.system_prompt
 def dynamic_plan_evaluate_prompt(ctx: RunContext[State]) -> str:
