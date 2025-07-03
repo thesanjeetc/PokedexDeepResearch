@@ -195,4 +195,4 @@ async def search_pokemon_by_criteria(
         "bst_tier",
     ]
 
-    return df.head(MAX_LIMIT)[selected_columns].to_csv(index=False)
+    return df.head(MAX_LIMIT)[selected_columns].to_string(index=False)

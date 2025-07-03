@@ -13,7 +13,7 @@ def format_execution_results(execution_results: list[ExecutionResult]) -> str:
                 for result in execution_results
             ]
         },
-        root_tag="results",
+        include_root_tag=False,
         item_tag="execution_result",
         indent="",
     )

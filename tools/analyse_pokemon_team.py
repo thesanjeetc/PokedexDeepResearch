@@ -188,4 +188,6 @@ async def analyse_pokemon_team(
         pokemon_profiles=pokemon_profiles,
     )
 
-    return analysis
+    return analysis.model_dump_json(
+        exclude_none=True, exclude_unset=True, by_alias=True, indent=2
+    )

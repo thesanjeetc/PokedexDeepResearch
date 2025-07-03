@@ -14,23 +14,6 @@ class DataGroup(str, Enum):
     LORE = "lore"
 
 
-def filter_moves(moves: Dict[str, Any], version: VersionGroup) -> Dict[str, Any]:
-    return {
-        k: v
-        for k, v in moves.items()
-        if isinstance(v, dict) and version in v and v[version]
-    }
-
-
-def filter_encounters(locations: Dict[str, Any], version: VersionGroup) -> List[str]:
-    locs = locations.get(version)
-    if isinstance(locs, list):
-        return locs
-    elif hasattr(locs, "tolist"):
-        return locs.tolist()
-    return []
-
-
 async def get_pokemon_profiles(
     names: List[str],
     data_groups: List[DataGroup],
@@ -69,27 +52,16 @@ async def get_pokemon_profiles(
             continue
 
         row = df.loc[name]
-        print(row["full_profile"])
         profile = json.loads(row["full_profile"])
-        result_profile: Dict[str, Any] = {}
 
-        for group in data_groups:
-            if group == "moves" and "moves" in profile and game_version:
-                result_profile["moves"] = filter_moves(profile["moves"], game_version)
+        if game_version:
+            profile["moves"] = {game_version: profile["moves"].get(game_version, {})}
+            profile["locations"] = {
+                game_version: profile["locations"]
+                .get("encounter_locations", {})
+                .get(game_version, {})
+            }
 
-            elif group == "locations" and "locations" in profile and game_version:
-                result_profile["locations"] = {
-                    "encounter_locations": filter_encounters(
-                        profile["locations"].get("encounter_locations", {}),
-                        game_version,
-                    )
-                }
+        results[name] = {k: v for k, v in profile.items() if k in set(data_groups)}
 
-            elif group in profile:
-                result_profile[group] = profile[group]
-
-        results[name] = result_profile
-
-    print(results)
-
-    return results
+    return json.dumps(results, indent=2, ensure_ascii=False)
