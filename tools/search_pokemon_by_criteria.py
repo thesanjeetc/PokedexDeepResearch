@@ -65,6 +65,16 @@ class BaseStatTier(str, Enum):
     high = "high"
     very_high = "very-high"
 
+
+class GrowthRate(str, Enum):
+    MEDIUM_SLOW = "medium-slow"
+    MEDIUM = "medium"
+    FAST = "fast"
+    SLOW = "slow"
+    FAST_THEN_VERY_SLOW = "fast-then-very-slow"
+    SLOW_THEN_VERY_FAST = "slow-then-very-fast"
+
+
 MAX_LIMIT = 100
 
 
@@ -87,6 +97,7 @@ async def search_pokemon_by_criteria(
     shape: Optional[List[PokemonShape]] = None,
     color: Optional[List[PokemonColor]] = None,
     habitat: Optional[List[PokemonHabitat]] = None,
+    growth_rate: Optional[List[GrowthRate]] = None,
 ) -> List[dict]:
     """
     Searches for Pokémon matching complex criteria related to typing, roles, stats, resistances,
@@ -184,6 +195,9 @@ async def search_pokemon_by_criteria(
 
     if not df.empty and habitat:
         df = df[df["habitat"].isin(habitat)]
+
+    if not df.empty and growth_rate:
+        df = df[df["growth_rate"].isin(growth_rate)]
 
     selected_columns = [
         "name",
