@@ -16,6 +16,10 @@ async def chat_profile():
             markdown_description="A deep research assistant for Pokémon queries.",
         ),
         cl.ChatProfile(
+            name="Pokedex Deep Research (+ Web Search)",
+            markdown_description="A deep research assistant for Pokémon queries, enhanced with web search capabilities.",
+        ),
+        cl.ChatProfile(
             name="ChatGPT-4o",
             markdown_description="Uses the ChatGPT-4o model for comparison.",
         ),
@@ -67,6 +71,9 @@ async def on_message(msg: cl.Message):
         response = await basic_agent.run(msg.content)
         await cl.Message(content=response.output, author="ChatGPT-4o").send()
         return
+
+    if chat_profile == "Pokedex Deep Research (+ Web Search)":
+        state.is_search_enabled = True
 
     if await run_clarify_turn(msg.content, state):
         await graph.run(start_node=Outline(prompt=state.user_prompt), state=state)

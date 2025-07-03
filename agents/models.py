@@ -38,6 +38,7 @@ class ExecutionOutput(BaseModel):
 
 
 class State(BaseModel):
+    is_search_enabled: bool = False
     clarify_history: list[ModelMessage] = Field(default_factory=list)
     num_clarify_turns: int = 0
     num_evaluate_turns: int = 0

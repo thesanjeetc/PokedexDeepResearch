@@ -68,7 +68,7 @@ class Outline(BaseNode[State]):
         step = cl.Step(name="📝 Planning", type="run")
         await step.send()
 
-        response = await outline_agent.run(self.prompt)
+        response = await outline_agent.run(self.prompt, deps=ctx.state)
         ctx.state.research_outline = response.output.plan
 
         await step.stream_token(f"📋 Plan:\n{ctx.state.research_outline}")
