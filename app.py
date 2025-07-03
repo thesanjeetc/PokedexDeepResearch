@@ -70,18 +70,4 @@ async def on_message(msg: cl.Message):
 
     if await run_clarify_turn(msg.content, state):
         await graph.run(start_node=Outline(prompt=state.user_prompt), state=state)
-        text_elements = []
-        for i, source in enumerate(state.execution_results):
-            if source.is_success:
-                source_name = f"{source.tool_name} [{i}]"
-                text_elements.append(
-                    cl.Text(
-                        content=source.summary,
-                        name=source_name,
-                        display="side",
-                    )
-                )
-        source_names = [text_el.name for text_el in text_elements]
-        report = state.report + "\n\nSources: " + " ".join(source_names)
-        await cl.Message(content=report, elements=text_elements).send()
         cl.user_session.set("state", State())
