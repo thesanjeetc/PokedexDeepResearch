@@ -1,3 +1,8 @@
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
 import chainlit as cl
 from agents.models import State
 from agents.graph import Outline, PlanEvaluate, Execute, Report
@@ -12,12 +17,12 @@ graph = Graph(nodes=(Outline, PlanEvaluate, Execute, Report))
 async def chat_profile():
     return [
         cl.ChatProfile(
-            name="Pokedex Deep Research",
-            markdown_description="A deep research assistant for Pokémon queries.",
+            name="Pokedex Deep Research (Web Search)",
+            markdown_description="A deep research assistant for Pokémon queries, enhanced with web search capabilities.",
         ),
         cl.ChatProfile(
-            name="Pokedex Deep Research (+ Web Search)",
-            markdown_description="A deep research assistant for Pokémon queries, enhanced with web search capabilities.",
+            name="Pokedex Deep Research",
+            markdown_description="A deep research assistant for Pokémon queries.",
         ),
         cl.ChatProfile(
             name="ChatGPT-4o",
@@ -26,7 +31,7 @@ async def chat_profile():
     ]
 
 
-async def run_clarify_turn(user_input: str, state: State, max_turns: int = 3):
+async def run_clarify_turn(user_input: str, state: State, max_turns: int = 2):
     state.num_clarify_turns += 1
 
     if state.num_clarify_turns <= max_turns:
@@ -49,7 +54,7 @@ async def run_clarify_turn(user_input: str, state: State, max_turns: int = 3):
         return False
     elif isinstance(result, RefinedPrompt):
         await cl.Message(
-            content=f"✅ Refined Prompt:\n\n**{result.refined_prompt}**",
+            content=f"✅ Objective:\n\n**{result.refined_prompt}**",
             author="Clarify Agent",
         ).send()
         state.user_prompt = result.refined_prompt
@@ -58,7 +63,9 @@ async def run_clarify_turn(user_input: str, state: State, max_turns: int = 3):
 
 @cl.on_chat_start
 async def on_chat_start():
-    await cl.Message("👋 Hi! What would you like help researching today?").send()
+    profile = cl.user_session.get("chat_profile", "Pokedex Deep Research (Web Search)")
+    msg = f"👋 Hello! This is {profile}. What can I help you with?"
+    await cl.Message(content=msg).send()
     cl.user_session.set("state", State())
 
 
@@ -72,7 +79,7 @@ async def on_message(msg: cl.Message):
         await cl.Message(content=response.output, author="ChatGPT-4o").send()
         return
 
-    if chat_profile == "Pokedex Deep Research (+ Web Search)":
+    if chat_profile == "Pokedex Deep Research (Web Search)":
         state.is_search_enabled = True
 
     if await run_clarify_turn(msg.content, state):
