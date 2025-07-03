@@ -193,48 +193,47 @@ def _transform_pokedex_by_game(raw_entries):
     return cleaned_data
 
 
-def _transform_moves(raw_moves_by_game):
-    """Aggregates moves from all games into one de-duplicated, readable moveset."""
-    if not raw_moves_by_game:
+def _to_level_map(level_up_list):
+    if not level_up_list:
         return {}
-
-    level_up_moves = {}
-    machine_moves, tutor_moves, all_tags = set(), set(), set()
-
-    for game, moveset in raw_moves_by_game.items():
-        for move in moveset.get("level_up", []):
-            name = move["name"]
-            level = move["level"]
-            if name not in level_up_moves or level < level_up_moves[name]:
-                level_up_moves[name] = level
-
-        machine_moves.update(moveset.get("machine", []))
-        tutor_moves.update(moveset.get("tutor", []))
-        all_tags.update(moveset.get("strategic_tags", []))
-
-    sorted_level_up = sorted(
-        level_up_moves.items(), key=lambda item: (item[1], item[0])
-    )
-
-    return {
-        "by_level_up": [f"Lvl {lvl}: {name}" for name, lvl in sorted_level_up],
-        "by_machine": sorted(list(machine_moves)),
-        "by_tutor": sorted(list(tutor_moves)),
-        "strategic_tags": sorted(list(all_tags)),
-    }
+    level_map = {}
+    for move in level_up_list:
+        level = str(move["level"])
+        name = move["name"]
+        if level not in level_map:
+            level_map[level] = []
+        level_map[level].append(name)
+    for level, moves in level_map.items():
+        if len(moves) == 1:
+            level_map[level] = moves[0]
+    return level_map
 
 
-# --- THE MAIN FORMATTING FUNCTION ---
+def _transform_moves(moves):
+    if not moves:
+        return {}
+    transformed_data = {}
+    for game, moveset in moves.items():
+        if moveset is None:
+            transformed_data[game] = None
+            continue
+        processed_moveset = {}
+        level_up_moves = moveset.get("level_up", [])
+        sorted_level_up = sorted(level_up_moves, key=lambda m: (m["level"], m["name"]))
+        processed_moveset["level_up"] = _to_level_map(sorted_level_up)
+        print(f"Processed {len(sorted_level_up)} level-up moves for {game}")
+        print(processed_moveset["level_up"])
+        for category in ["egg", "machine", "tutor", "strategic_tags"]:
+            move_list = moveset.get(category)
+            if isinstance(move_list, list):
+                processed_moveset[category] = sorted(move_list)
+            else:
+                processed_moveset[category] = move_list
+        transformed_data[game] = processed_moveset
+    return transformed_data
 
 
 def format_pokemon_profile(data):
-    """
-    Takes the flat, processed data and formats it into a final, nested,
-    LLM-friendly profile by cleaning up specific fields while preserving
-    the desired structure for locations and pokedex entries.
-    """
-
-    # --- 1. Perform targeted transformations on the messy fields ---
     abilities_formatted = _transform_abilities(data.get("abilities", []))
     evolutions_formatted = _transform_evolutions(data.get("evolution_paths", []))
     locations_formatted = _transform_locations_by_game(
@@ -243,7 +242,6 @@ def format_pokemon_profile(data):
     moves_formatted = _transform_moves(data.get("moves", {}))
     pokedex_formatted = _transform_pokedex_by_game(data.get("pokedex_entries", {}))
 
-    # --- 2. Build the final nested profile using the cleaned-up data ---
     full_profile = {
         "profile": {
             "identity": {
