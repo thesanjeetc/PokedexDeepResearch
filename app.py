@@ -73,7 +73,7 @@ async def on_message(msg: cl.Message):
         text_elements = []
         for i, source in enumerate(state.execution_results):
             if source.is_success:
-                source_name = source.tool_name
+                source_name = f"{source.tool_name} [{i}]"
                 text_elements.append(
                     cl.Text(
                         content=source.summary,
@@ -81,12 +81,7 @@ async def on_message(msg: cl.Message):
                         display="side",
                     )
                 )
-        await cl.Message(
-            content="✅ Report generated.",
-            author="Agent",
-            elements=[
-                cl.Text(name="📄 Report", content=state.report),
-                *text_elements,
-            ],
-        ).send()
+        source_names = [text_el.name for text_el in text_elements]
+        report = state.report + "\n\nSources: " + " ".join(source_names)
+        await cl.Message(content=report, elements=text_elements).send()
         cl.user_session.set("state", State())
