@@ -8,6 +8,7 @@ def format_execution_results(execution_results: list[ExecutionResult]) -> str:
             "execution_results": [
                 {
                     "query": result.query,
+                    "tool_name": result.tool_name,
                     "summary": result.summary,
                 }
                 for result in execution_results
